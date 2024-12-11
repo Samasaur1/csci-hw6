@@ -498,25 +498,32 @@ class Surface {
         const S = this;
         const R = new Surface(this.getName(),this.level+1);
 
-        // Steps 1-3.
-        //
-        // THE CODE BELOW IS BOGUS! It copies the tetrahedron.
-        //
-        
-        const tetra = gSurfaces.get("tetra")!;
-        // Copy the tetrahedron vertcies.
-        for (let v of tetra.allVertices()) {
-            R.makeVertex(v.position);
-        }
-        // Copy the tetrahedron faces.
-        for (let f of tetra.allFaces()) {
-            const v0 = f.edge.target.id;
-            const v1 = f.edge.next.target.id;
-            const v2 = f.edge.prev.target.id;
-            R.makeFace(v0,v1,v2);
+        // Step 1.
+        for (let v of S.allVertices()) {
+            let pos = v.position; // TODO: smoothing
+            let clone = R.makeVertex(pos, v.id);
+            v.clone = clone;
         }
 
-        //
+        // Step 2.
+        for (let e of S.allEdges()) {
+            if (e.split != null) { continue }
+            let pos = e.source.position.plus(e.getVector().div(2)); // TODO: smoothing
+            let split = R.makeVertex(pos);
+            e.split = split;
+            e.twin!.split = split;
+        }
+
+        // Step 3.
+        for (let f of S.allFaces()) {
+            let e0 = f.edge;
+
+            R.makeFace(f.edge.source.id, f.edge.split!.id, f.edge.prev!.split!.id);
+            R.makeFace(f.edge.split!.id, f.edge.target.id, f.edge.next!.split!.id);
+            R.makeFace(f.edge.next!.split!.id, f.edge.next!.target.id, f.edge.prev!.split!.id);
+            R.makeFace(f.edge.split!.id, f.edge.next!.split!.id, f.edge.prev!.split!.id);
+        }
+        
         R.regirth();
         return R;
     }
