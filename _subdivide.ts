@@ -472,7 +472,6 @@ class Surface {
         //
         // Typically numbers the face based on the order it is added.
         //
-        console.log(vi0,vi1,vi2);
         console.assert(this.vertices.has(vi0));
         console.assert(this.vertices.has(vi1));
         console.assert(this.vertices.has(vi2));
@@ -485,6 +484,24 @@ class Surface {
         const f = new Face(e01,e12,e20,id);
         this.faces.push(f);
         return f;
+    }
+
+    calculateClonePosition(v: Vertex): Point3d {
+        var points: Point3d[] = [v.edge!.target.position];
+
+        var tracer = v.edge!.prev!.twin!;
+        var first = v.edge!.target.id;
+        while (tracer.target.id != first) {
+            points.push(tracer.target.position);
+            tracer = tracer.prev!.twin!;
+        }
+
+        let k = points.length;
+        let beta = 5/8 - Math.pow(3/8 + 1/4 * Math.cos(2 * Math.PI /k), 2);
+
+        let scalars = Array(k).fill(beta/k);
+
+        return v.position.combos(scalars, points);
     }
     
     subdivide(): Surface {
@@ -506,7 +523,7 @@ class Surface {
 
         // Step 1.
         for (let v of S.allVertices()) {
-            let pos = v.position; // TODO: smoothing
+            let pos = this.calculateClonePosition(v);
             let clone = R.makeVertex(pos, v.id);
             v.clone = clone;
         }
