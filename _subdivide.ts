@@ -140,7 +140,7 @@ class Vertex {
 // ========
 //
 class Edge {
-    id: [number, number];
+    id: string;
     source: Vertex;
     target: Vertex;
     next: Edge | null;
@@ -149,7 +149,7 @@ class Edge {
     twin: Edge | null;
     split: Vertex | null;
 
-    constructor(id: [number, number], v0: Vertex, v1: Vertex) {
+    constructor(id: string, v0: Vertex, v1: Vertex) {
         // Constructs an edge from vertex `v0` to vertex `v1`.
         //
         // The edge is identifiable within the surface by its `id`.
@@ -348,7 +348,7 @@ class Face {
 class Surface {
     vertices: Map<number, Vertex>;
     numVertices: number;
-    edges: Map<[number, number], Edge>;
+    edges: Map<string, Edge>;
     faces: Face[];
     nameBase: string;
     level: number;
@@ -393,7 +393,7 @@ class Surface {
         return this.vertices.get(vid)!;
     }
     
-    getEdge(eid: [number, number]): Edge {
+    getEdge(eid: string): Edge {
         //
         // Returns an edge from its identifier.
         //
@@ -448,8 +448,8 @@ class Surface {
         console.assert(this.vertices.has(vi1));
         const v0 = this.getVertex(vi0);
         const v1 = this.getVertex(vi1);
-        const eid: [number, number] = [vi0, vi1];
-        const tid: [number, number] = [vi1, vi0];
+        const eid = vi0.toString() + ";" + vi1.toString();
+        const tid = vi1.toString() + ";" + vi0.toString();
         const e = new Edge(eid,v0,v1);
         this.edges.set(eid,e);
         if (this.edges.has(tid)) {
