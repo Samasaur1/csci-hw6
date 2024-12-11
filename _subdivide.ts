@@ -531,7 +531,7 @@ class Surface {
         // Step 2.
         for (let e of S.allEdges()) {
             if (e.split != null) { continue }
-            let pos = e.source.position.combo(0.5, e.target.position).combo(0.75, e.next!.target.position.combo(0.5, e.twin!.next!.target.position));
+            let pos = e.source.position.combo(0.5, e.target.position).combo(0.25, e.next!.target.position.combo(0.5, e.twin!.next!.target.position));
             let split = R.makeVertex(pos);
             e.split = split;
             e.twin!.split = split;
