@@ -27,8 +27,19 @@
 // ========
 //
 
-EPSILON = 1.0e-8
+const EPSILON = 1.0e-8
 
+import { Point3d, Vector3d, ORIGIN3D } from "./_geometry-3d";
+
+type Color = { r: number, g: number, b: number }
+declare function glModColor(name: string, id: number, color: Color): void;
+declare function glColor3f(r: number, g: number, b: number): void
+declare function glBeginEnd(name: string): void
+declare function glBegin(type: number, name: string, harlequin?: boolean): void;
+declare function glEnd(): void;
+declare var GL_LINES: number;
+declare var GL_TRIANGLES: number;
+declare var gSurfaces: Map<string, Surface>;
 
 //
 // class Vertex
@@ -53,8 +64,12 @@ EPSILON = 1.0e-8
 // ========
 //
 class Vertex {
+    id: number;
+    position: Point3d;
+    edge: Edge | null;
+    clone: Vertex | null;
 
-    constructor(id,P) {
+    constructor(id: number, P: Point3d) {
         //
         // Construct a new vertex at position `P : Point3d` identified by
         // `id` within the surface.
@@ -68,7 +83,7 @@ class Vertex {
         this.clone = null;
     }
 
-    setEdge(e) {
+    setEdge(e: Edge) {
         //
         // Register some outgoing surface edge from this vertex.
         //
@@ -125,8 +140,16 @@ class Vertex {
 // ========
 //
 class Edge {
+    id: [number, number];
+    source: Vertex;
+    target: Vertex;
+    next: Edge | null;
+    prev: Edge | null;
+    face: Face | null;
+    twin: Edge | null;
+    split: Vertex | null;
 
-    constructor(id, v0, v1) {
+    constructor(id: [number, number], v0: Vertex, v1: Vertex) {
         // Constructs an edge from vertex `v0` to vertex `v1`.
         //
         // The edge is identifiable within the surface by its `id`.
@@ -148,7 +171,7 @@ class Edge {
         this.split = null;
     }
     
-    setNext(e) {
+    setNext(e: Edge) {
         //
         // Stitch this together with its successor along a face's border.
         //
@@ -159,7 +182,7 @@ class Edge {
         e.prev = this;
     }
     
-    setTwin(e) {
+    setTwin(e: Edge) {
         //
         // Tie this edge with its "twin" that borders the neighboring
         // face.
@@ -169,7 +192,7 @@ class Edge {
         e.twin = this;
     }
     
-    setFace(f) {
+    setFace(f: Face) {
         //
         // Associate this edge with the face it borders.
         //
@@ -178,7 +201,7 @@ class Edge {
         f.edge = this;
     }
     
-    getVector() {
+    getVector(): Vector3d {
         //
         // Returns a vector corresponding to the direction from the `source`
         // to the `target` vertex positions, a Vector3d.
@@ -187,7 +210,7 @@ class Edge {
         return this.target.position.minus(this.source.position);
     }
 
-    getPoints() {
+    getPoints(): [Point3d, Point3d] {
         //
         // Returns the ordered pair of `source` and `target` positions
         // as an array of size 2.
@@ -226,7 +249,12 @@ class Edge {
 // ========
 //
 class Face {
-    constructor(e01, e12, e20, id) {
+    id: number;
+    edge: Edge;
+    normal: Vector3d | null;
+    mark: number;
+
+    constructor(e01: Edge, e12: Edge, e20: Edge, id: number) {
         //
         // Construct a face from three oriented edges.
         //
@@ -243,7 +271,7 @@ class Face {
         this.mark = -1;
     }
     
-    getNormal() {
+    getNormal(): Vector3d {
         //
         // Compute and return the unit vector normal to this
         // face according to its edges' CCW orientation.
@@ -258,7 +286,7 @@ class Face {
         return this.normal;
     }
     
-    getPoints() {
+    getPoints(): [Point3d, Point3d, Point3d] {
         //
         // Returns the ordered triple of vertex positions around the
         // face as an array of size 3.
@@ -318,8 +346,14 @@ class Face {
 // ========
 //
 class Surface {
+    vertices: Map<number, Vertex>;
+    numVertices: number;
+    edges: Map<[number, number], Edge>;
+    faces: Face[];
+    nameBase: string;
+    level: number;
 
-    constructor(name,level=0) {
+    constructor(name: string, level=0) {
         //
         // Build an empty surface mesh, preparing it to take vertices,
         // edges, and faces.
@@ -336,14 +370,14 @@ class Surface {
         this.level = level;
     }
 
-    getName() {
+    getName(): string {
         //
         // Returns the (base) name string of this surface.
         //
         return this.nameBase;
     }
 
-    getFace(fid) {
+    getFace(fid: number): Face {
         //
         // Returns a face from its identifier.
         //        
@@ -351,20 +385,20 @@ class Surface {
         return this.faces[fid];
     }
     
-    getVertex(vid) {
+    getVertex(vid: number): Vertex {
         //
         // Returns a vertex from its identifier.
         //
         console.assert(this.vertices.has(vid));
-        return this.vertices.get(vid);
+        return this.vertices.get(vid)!;
     }
     
-    getEdge(eid) {
+    getEdge(eid: [number, number]): Edge {
         //
         // Returns an edge from its identifier.
         //
         console.assert(this.edges.has(eid));
-        return this.edges.get(eid);
+        return this.edges.get(eid)!;
     }
 
     allVertices() {
@@ -388,7 +422,7 @@ class Surface {
         return this.faces;
     }
     
-    makeVertex(P,id=null) {
+    makeVertex(P: Point3d, id: number | null=null): Vertex {
         //
         // Adds a new vertex to the surface mesh at position `P : Point3d`.
         //
@@ -403,7 +437,7 @@ class Surface {
         return v;
     }
     
-    makeEdge(vi0, vi1) {
+    makeEdge(vi0: number, vi1: number): Edge {
         //
         // Adds a new half-edge to the surface from/to the given vertices.
         // NOTE: The vertices are specified by their IDs.
@@ -414,8 +448,8 @@ class Surface {
         console.assert(this.vertices.has(vi1));
         const v0 = this.getVertex(vi0);
         const v1 = this.getVertex(vi1);
-        const eid = vi0.toString() + ";" + vi1.toString();
-        const tid = vi1.toString() + ";" + vi0.toString();
+        const eid: [number, number] = [vi0, vi1];
+        const tid: [number, number] = [vi1, vi0];
         const e = new Edge(eid,v0,v1);
         this.edges.set(eid,e);
         if (this.edges.has(tid)) {
@@ -425,7 +459,7 @@ class Surface {
         return e;
     }
     
-    makeFace(vi0,vi1,vi2,id=null) {
+    makeFace(vi0: number, vi1: number, vi2: number, id: number | null=null): Face {
         //
         // Adds a new oriented triangular face around the given vertices.
         // NOTE: The vertices are specified by their IDs.
@@ -447,7 +481,7 @@ class Surface {
         return f;
     }
     
-    subdivide() {
+    subdivide(): Surface {
         //
         // Subdivide this surface by Loop subdivision, returning the
         // refined surface object.
@@ -469,7 +503,7 @@ class Surface {
         // THE CODE BELOW IS BOGUS! It copies the tetrahedron.
         //
         
-        const tetra = gSurfaces.get("tetra");
+        const tetra = gSurfaces.get("tetra")!;
         // Copy the tetrahedron vertcies.
         for (let v of tetra.allVertices()) {
             R.makeVertex(v.position);
@@ -494,7 +528,7 @@ class Surface {
     // it has already been compiled with glBeginEnd.
     //
     
-    paint(face, color) {
+    paint(face: Face, color: Color) {
         glModColor(this.getName(), face.id, color);
     }
 
@@ -505,7 +539,7 @@ class Surface {
     // SUPPORT for reading OBJ files, and normalizing its geometry
     //
     
-    read(objText) {
+    read(objText: string) {
         //
         // read(objText)
         //
@@ -562,7 +596,7 @@ class Surface {
 		        // vertex normal specifications for facets.
 		        //
 		        if (parts[0] == 'f') {
-		            let viList = [];
+		            let viList: number[] = [];
 		            for (let i = 1; i < parts.length; i++) {
 			            //
 			            // Ignores vertex textures/normals with split.
