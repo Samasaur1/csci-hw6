@@ -455,6 +455,12 @@ class Surface {
         if (this.edges.has(tid)) {
             const t = this.getEdge(tid); 
             e.setTwin(t);
+            t.setTwin(e);
+        } else {
+            const twin = new Edge(tid, v1, v0);
+            this.edges.set(tid, twin);
+            e.setTwin(twin);
+            twin.setTwin(e);
         }
         return e;
     }
